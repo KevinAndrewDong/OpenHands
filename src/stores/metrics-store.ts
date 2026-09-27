@@ -13,21 +13,53 @@ export interface MetricsState {
   } | null;
 }
 
-export interface MetricsStore extends MetricsState {
-  setMetrics: (metrics: MetricsState) => void;
-  resetMetrics: () => void;
+export interface MetricsStore {
+  metricsByConversationId: Record<string, MetricsState>;
+  wsGenerationByConversationId: Record<string, number>;
+  setWebSocketSnapshot: (conversationId: string, metrics: MetricsState) => void;
+  hydrateRestSnapshot: (
+    conversationId: string,
+    metrics: MetricsState,
+    expectedWsGeneration: number,
+  ) => void;
 }
 
-const EMPTY_METRICS: MetricsState = {
+export const EMPTY_METRICS: MetricsState = {
   cost: null,
   max_budget_per_task: null,
   usage: null,
 };
 
 const useMetricsStore = create<MetricsStore>((set) => ({
-  ...EMPTY_METRICS,
-  setMetrics: (metrics) => set(metrics),
-  resetMetrics: () => set(EMPTY_METRICS),
+  metricsByConversationId: {},
+  wsGenerationByConversationId: {},
+  setWebSocketSnapshot: (conversationId, metrics) =>
+    set((state) => ({
+      metricsByConversationId: {
+        ...state.metricsByConversationId,
+        [conversationId]: metrics,
+      },
+      wsGenerationByConversationId: {
+        ...state.wsGenerationByConversationId,
+        [conversationId]:
+          (state.wsGenerationByConversationId[conversationId] ?? 0) + 1,
+      },
+    })),
+  hydrateRestSnapshot: (conversationId, metrics, expectedWsGeneration) =>
+    set((state) => {
+      if (
+        (state.wsGenerationByConversationId[conversationId] ?? 0) !==
+        expectedWsGeneration
+      ) {
+        return state;
+      }
+      return {
+        metricsByConversationId: {
+          ...state.metricsByConversationId,
+          [conversationId]: metrics,
+        },
+      };
+    }),
 }));
 
 // Dev-only console handle for inspecting the live WS metrics while

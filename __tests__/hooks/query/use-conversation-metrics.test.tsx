@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useConversationMetrics } from "#/hooks/query/use-conversation-metrics";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
 import { ExecutionStatus } from "#/types/agent-server/core/base/common";
+import useMetricsStore from "#/stores/metrics-store";
 
 const runtimeInfo = {
   id: "conv-abc",
@@ -44,6 +45,10 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  useMetricsStore.setState({
+    metricsByConversationId: {},
+    wsGenerationByConversationId: {},
+  });
 });
 
 describe("useConversationMetrics", () => {
@@ -177,5 +182,48 @@ describe("useConversationMetrics", () => {
         38826,
       );
     });
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-multi"]?.usage
+        ?.cache_read_tokens,
+    ).toBe(24686);
+  });
+
+  it("does not let a delayed REST response replace newer WebSocket metrics", async () => {
+    let resolveResponse!: (value: typeof runtimeInfo) => void;
+    const response = new Promise<typeof runtimeInfo>((resolve) => {
+      resolveResponse = resolve;
+    });
+    const spy = vi
+      .spyOn(AgentServerConversationService, "getRuntimeConversation")
+      .mockReturnValue(response);
+
+    const { result } = renderHook(
+      () => useConversationMetrics("conv-abc", null, null),
+      {
+        wrapper: makeWrapper(),
+      },
+    );
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+
+    useMetricsStore.getState().setWebSocketSnapshot("conv-abc", {
+      cost: 3,
+      max_budget_per_task: 5,
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        cache_read_tokens: 80,
+        cache_write_tokens: 10,
+        context_window: 128_000,
+        per_turn_token: 120,
+      },
+    });
+    resolveResponse(runtimeInfo);
+    await waitFor(() =>
+      expect(result.current.data?.accumulated_cost).toBe(2.5),
+    );
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-abc"]?.usage
+        ?.cache_read_tokens,
+    ).toBe(80);
   });
 });

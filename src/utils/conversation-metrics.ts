@@ -4,6 +4,7 @@ import type {
   RuntimeConversationStats,
   TokenUsage,
 } from "#/api/conversation-service/agent-server-conversation-service.types";
+import type { MetricsState } from "#/stores/metrics-store";
 
 /**
  * TypeScript equivalent of the get_combined_metrics method from the Python SDK
@@ -76,4 +77,22 @@ export function getCombinedMetrics(
   conversationInfo: RuntimeConversationInfo,
 ): MetricsSnapshot {
   return combineUsageMetrics(conversationInfo.stats);
+}
+
+export function toMetricsState(snapshot: MetricsSnapshot): MetricsState {
+  const usage = snapshot.accumulated_token_usage;
+  return {
+    cost: snapshot.accumulated_cost,
+    max_budget_per_task: snapshot.max_budget_per_task,
+    usage: usage
+      ? {
+          prompt_tokens: usage.prompt_tokens ?? 0,
+          completion_tokens: usage.completion_tokens ?? 0,
+          cache_read_tokens: usage.cache_read_tokens ?? 0,
+          cache_write_tokens: usage.cache_write_tokens ?? 0,
+          context_window: usage.context_window ?? 0,
+          per_turn_token: usage.per_turn_token ?? 0,
+        }
+      : null,
+  };
 }

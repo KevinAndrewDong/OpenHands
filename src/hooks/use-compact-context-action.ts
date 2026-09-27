@@ -72,6 +72,7 @@ export function useCompactContextAction(perTurnToken: number = 0) {
   );
 
   useAwaitContextCompaction({
+    conversationId: conversation?.id ?? null,
     beforeToken,
     baselineEventIds: beforeToken !== null ? baselineEventIdsRef.current : null,
     onComplete: handleCompactionComplete,
@@ -81,7 +82,8 @@ export function useCompactContextAction(perTurnToken: number = 0) {
     if (!conversation?.id || isCompacting) return;
 
     const snapshot =
-      useMetricsStore.getState().usage?.per_turn_token ?? perTurnToken;
+      useMetricsStore.getState().metricsByConversationId[conversation.id]?.usage
+        ?.per_turn_token ?? perTurnToken;
     // The condense POST can return only after the server already emitted its
     // Condensation event, so the await baseline must be captured *before* the
     // request fires, not when the post-ack effect starts.

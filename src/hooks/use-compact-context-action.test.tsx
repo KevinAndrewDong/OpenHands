@@ -60,7 +60,7 @@ describe("useCompactContextAction (integration)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     useEventStore.getState().clearEvents();
-    useMetricsStore.getState().setMetrics({
+    useMetricsStore.getState().setWebSocketSnapshot("c1", {
       cost: null,
       max_budget_per_task: null,
       usage: usage(50_000),
@@ -87,7 +87,7 @@ describe("useCompactContextAction (integration)", () => {
 
     act(() => {
       useEventStore.getState().addEvent(condensationEvent("cond-x"));
-      useMetricsStore.getState().setMetrics({
+      useMetricsStore.getState().setWebSocketSnapshot("c1", {
         cost: null,
         max_budget_per_task: null,
         usage: usage(20_000),

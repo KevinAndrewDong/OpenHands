@@ -65,21 +65,36 @@ describe("useLiveConversationMetrics", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useMetricsStore.setState({
-      cost: null,
-      max_budget_per_task: null,
-      usage: null,
+      metricsByConversationId: {},
+      wsGenerationByConversationId: {},
     });
     useActiveConversationMock.mockReturnValue({ data: CONVERSATION });
     useConversationMetricsMock.mockReturnValue({ data: undefined });
   });
 
   it("prefers the live store over the REST snapshot", () => {
-    useMetricsStore.setState(storeMetrics);
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", storeMetrics);
     useConversationMetricsMock.mockReturnValue({ data: snapshot() });
 
     const { result } = renderHook(() => useLiveConversationMetrics());
 
     expect(result.current).toEqual(storeMetrics);
+  });
+
+  it("selects metrics by active conversation when switching", () => {
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", storeMetrics);
+    const { result, rerender } = renderHook(() => useLiveConversationMetrics());
+    expect(result.current).toEqual(storeMetrics);
+
+    useActiveConversationMock.mockReturnValue({
+      data: { ...CONVERSATION, id: "conv-2" },
+    });
+    rerender();
+    expect(result.current).toEqual({
+      cost: null,
+      max_budget_per_task: null,
+      usage: null,
+    });
   });
 
   it("coerces null token fields from the wire to zero", () => {

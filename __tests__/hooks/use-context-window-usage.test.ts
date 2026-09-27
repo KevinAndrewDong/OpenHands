@@ -54,16 +54,21 @@ describe("useContextWindowUsage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useMetricsStore.setState({
-      cost: null,
-      max_budget_per_task: null,
-      usage: null,
+      metricsByConversationId: {},
+      wsGenerationByConversationId: {},
     });
     useActiveConversationMock.mockReturnValue({ data: CONVERSATION });
     useConversationMetricsMock.mockReturnValue({ data: undefined });
   });
 
   it("prefers the live WS store when it reports a usable context window", () => {
-    useMetricsStore.setState({ usage: storeUsage(200_000, 1234) });
+    useMetricsStore
+      .getState()
+      .setWebSocketSnapshot("conv-1", {
+        cost: null,
+        max_budget_per_task: null,
+        usage: storeUsage(200_000, 1234),
+      });
     useConversationMetricsMock.mockReturnValue({
       data: { accumulated_token_usage: restUsage(128_000, 500) },
     });
@@ -89,18 +94,21 @@ describe("useContextWindowUsage", () => {
     });
   });
 
-  it("falls through to REST when the store reports a zero context window", () => {
-    useMetricsStore.setState({ usage: storeUsage(0, 999) });
+  it("keeps the live snapshot intact when its context window is zero", () => {
+    useMetricsStore
+      .getState()
+      .setWebSocketSnapshot("conv-1", {
+        cost: null,
+        max_budget_per_task: null,
+        usage: storeUsage(0, 999),
+      });
     useConversationMetricsMock.mockReturnValue({
       data: { accumulated_token_usage: restUsage(128_000, 500) },
     });
 
     const { result } = renderHook(() => useContextWindowUsage());
 
-    expect(result.current).toEqual({
-      perTurnToken: 500,
-      contextWindow: 128_000,
-    });
+    expect(result.current).toBeNull();
   });
 
   it("returns null when no source reports a positive context window", () => {

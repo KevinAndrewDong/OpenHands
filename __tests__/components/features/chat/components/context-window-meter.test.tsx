@@ -18,7 +18,7 @@ vi.mock("#/hooks/use-select-conversation-tab", () => ({
 }));
 
 vi.mock("#/hooks/query/use-active-conversation", () => ({
-  useActiveConversation: () => ({ data: undefined }),
+  useActiveConversation: () => ({ data: { id: "conv-1" } }),
 }));
 
 vi.mock("#/hooks/query/use-conversation-metrics", () => ({
@@ -61,9 +61,8 @@ describe("ContextWindowMeter", () => {
   afterEach(() => {
     navigateToTabMock.mockClear();
     useMetricsStore.setState({
-      cost: null,
-      max_budget_per_task: null,
-      usage: null,
+      metricsByConversationId: {},
+      wsGenerationByConversationId: {},
     });
   });
 
@@ -76,7 +75,7 @@ describe("ContextWindowMeter", () => {
   });
 
   it("shows a Show Context tooltip on the ring", () => {
-    useMetricsStore.setState({
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", {
       cost: null,
       max_budget_per_task: null,
       usage: {
@@ -102,7 +101,7 @@ describe("ContextWindowMeter", () => {
   // value to `--oh-border`, which the ring track used, so hovering erased the
   // track. `context-window-ring.test.tsx` asserts the resulting contrast.
   it("uses the shared chat-input icon button styling for its hover fill", () => {
-    useMetricsStore.setState({
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", {
       cost: null,
       max_budget_per_task: null,
       usage: {
@@ -123,7 +122,7 @@ describe("ContextWindowMeter", () => {
   });
 
   it("opens a popover with compact usage details", () => {
-    useMetricsStore.setState({
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", {
       cost: null,
       max_budget_per_task: null,
       usage: {
@@ -154,7 +153,7 @@ describe("ContextWindowMeter", () => {
   });
 
   it("opens the Usage drawer from the popover meter", () => {
-    useMetricsStore.setState({
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", {
       cost: 1.25,
       max_budget_per_task: null,
       usage: {
@@ -176,7 +175,7 @@ describe("ContextWindowMeter", () => {
   });
 
   it("opens the Usage drawer from the usage row", () => {
-    useMetricsStore.setState({
+    useMetricsStore.getState().setWebSocketSnapshot("conv-1", {
       cost: 1.25,
       max_budget_per_task: null,
       usage: {

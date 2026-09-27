@@ -152,7 +152,10 @@ describe("ConversationWebSocketProvider — conversation-scoped event store", ()
     });
     useOptimisticUserMessageStore.getState().clearPendingMessages();
     useBrowserStore.getState().reset();
-    useMetricsStore.getState().resetMetrics();
+    useMetricsStore.setState({
+      metricsByConversationId: {},
+      wsGenerationByConversationId: {},
+    });
     useCommandStore.setState({ commands: [] });
     useErrorMessageStore.getState().removeErrorMessage();
     useConversationStateStore.getState().reset();
@@ -881,7 +884,8 @@ describe("ConversationWebSocketProvider — conversation-scoped event store", ()
         }),
       );
 
-      const metrics = useMetricsStore.getState();
+      const metrics =
+        useMetricsStore.getState().metricsByConversationId["conv-state"];
       expect(metrics.cost).toBe(1.25);
       expect(metrics.max_budget_per_task).toBe(10);
       expect(metrics.usage).toMatchObject({
@@ -1065,7 +1069,7 @@ describe("ConversationWebSocketProvider — conversation-scoped event store", ()
     const { rerender } = renderProvider("conv-a");
     await waitFor(() => expect(eventIds()).toEqual(["user-msg-conv-a"]));
 
-    useMetricsStore.setState({
+    useMetricsStore.getState().setWebSocketSnapshot("conv-a", {
       cost: 1.5,
       max_budget_per_task: 5,
       usage: {
@@ -1089,9 +1093,12 @@ describe("ConversationWebSocketProvider — conversation-scoped event store", ()
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(useMetricsStore.getState().usage).toBeNull());
-    expect(useMetricsStore.getState().cost).toBeNull();
-    expect(useMetricsStore.getState().max_budget_per_task).toBeNull();
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-b"],
+    ).toBeUndefined();
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-a"]?.cost,
+    ).toBe(1.5);
   });
 
   it("keeps events that arrived after history when re-entering the same conversation", async () => {

@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
-import { getCombinedMetrics } from "#/utils/conversation-metrics";
+import { getCombinedMetrics, toMetricsState } from "#/utils/conversation-metrics";
 import type { MetricsSnapshot } from "#/api/conversation-service/agent-server-conversation-service.types";
+import useMetricsStore from "#/stores/metrics-store";
 
 export const useConversationMetrics = (
   conversationId: string | null | undefined,
@@ -22,13 +23,25 @@ export const useConversationMetrics = (
     ],
     queryFn: async () => {
       if (!conversationId) throw new Error("Conversation ID is required");
+      const generation =
+        useMetricsStore.getState().wsGenerationByConversationId[
+          conversationId
+        ] ?? 0;
       const conversationInfo =
         await AgentServerConversationService.getRuntimeConversation(
           conversationId,
           conversationUrl,
           sessionApiKey,
         );
-      return getCombinedMetrics(conversationInfo);
+      const snapshot = getCombinedMetrics(conversationInfo);
+      useMetricsStore
+        .getState()
+        .hydrateRestSnapshot(
+          conversationId,
+          toMetricsState(snapshot),
+          generation,
+        );
+      return snapshot;
     },
     // conversation_url is only set for cloud conversations; local ones are
     // served by the ConversationClient fallback in getRuntimeConversation.

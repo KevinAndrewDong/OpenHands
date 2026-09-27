@@ -1,7 +1,4 @@
-import { useMemo } from "react";
-import useMetricsStore from "#/stores/metrics-store";
-import { useActiveConversation } from "#/hooks/query/use-active-conversation";
-import { useConversationMetrics } from "#/hooks/query/use-conversation-metrics";
+import { useLiveConversationMetrics } from "#/hooks/use-live-conversation-metrics";
 
 export interface ContextWindowUsage {
   perTurnToken: number;
@@ -29,24 +26,6 @@ function toContextWindowUsage(
 }
 
 export function useContextWindowUsage(): ContextWindowUsage | null {
-  const storeUsage = useMetricsStore((state) => state.usage);
-  const { data: conversation } = useActiveConversation();
-
-  const { data: conversationMetrics } = useConversationMetrics(
-    conversation?.id,
-    conversation?.conversation_url,
-    conversation?.session_api_key,
-    Boolean(conversation?.id),
-  );
-
-  return useMemo(() => {
-    const fromStore = toContextWindowUsage(storeUsage);
-    if (fromStore) {
-      return fromStore;
-    }
-
-    return toContextWindowUsage(
-      conversationMetrics?.accumulated_token_usage ?? null,
-    );
-  }, [storeUsage, conversationMetrics]);
+  const { usage } = useLiveConversationMetrics();
+  return toContextWindowUsage(usage);
 }

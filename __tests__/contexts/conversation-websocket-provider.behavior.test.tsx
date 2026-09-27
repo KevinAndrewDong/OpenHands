@@ -348,9 +348,8 @@ describe("Conversation websocket behavior", () => {
     useGoalStore.setState({ statusByConversation: {} });
     useModelStore.getState().clearAll();
     useMetricsStore.setState({
-      cost: null,
-      max_budget_per_task: null,
-      usage: null,
+      metricsByConversationId: {},
+      wsGenerationByConversationId: {},
     });
     useFilesTabStore.setState({
       selectedPath: null,
@@ -1176,13 +1175,18 @@ describe("Conversation websocket behavior", () => {
         },
       }),
     );
-    expect(useMetricsStore.getState()).toMatchObject({
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-main"],
+    ).toMatchObject({
       cost: 1.25,
       usage: null,
     });
     // A stats update whose budget is absent passes the value through as
     // undefined rather than coercing it to null.
-    expect(useMetricsStore.getState().max_budget_per_task).toBeUndefined();
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-main"]
+        .max_budget_per_task,
+    ).toBeUndefined();
     dispatchMain(
       makeStateEvent("20", "stats", {
         usage_to_metrics: {
@@ -1201,7 +1205,9 @@ describe("Conversation websocket behavior", () => {
         },
       }),
     );
-    expect(useMetricsStore.getState()).toMatchObject({
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-main"],
+    ).toMatchObject({
       cost: 2.5,
       max_budget_per_task: 8,
       usage: {
@@ -1929,7 +1935,9 @@ describe("Conversation websocket behavior", () => {
         },
       }),
     );
-    expect(useMetricsStore.getState()).toMatchObject({
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-main"],
+    ).toMatchObject({
       cost: 6,
       max_budget_per_task: 10,
     });
@@ -2059,6 +2067,18 @@ describe("Conversation websocket behavior", () => {
         "conv-planning"
       ],
     ).toBe("finished");
+    useMetricsStore.getState().setWebSocketSnapshot("conv-main", {
+      cost: 7,
+      max_budget_per_task: null,
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 10,
+        cache_read_tokens: 80,
+        cache_write_tokens: 0,
+        context_window: 128_000,
+        per_turn_token: 110,
+      },
+    });
     dispatchPlanning(
       makeStateEvent("44", "stats", {
         usage_to_metrics: {
@@ -2070,7 +2090,13 @@ describe("Conversation websocket behavior", () => {
         },
       }),
     );
-    expect(useMetricsStore.getState().cost).toBe(4);
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-planning"].cost,
+    ).toBe(4);
+    expect(
+      useMetricsStore.getState().metricsByConversationId["conv-main"].usage
+        ?.cache_read_tokens,
+    ).toBe(80);
     expect(
       useConversationStateStore.getState().executionStatusByConversation[
         "conv-planning"

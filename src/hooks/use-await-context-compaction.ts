@@ -37,6 +37,7 @@ export function buildContextCompactionResult(
 }
 
 interface UseAwaitContextCompactionOptions {
+  conversationId: string | null;
   /**
    * Snapshot of `per_turn_token` taken when compaction was requested.
    * Pass `null` when not awaiting a result.
@@ -60,6 +61,7 @@ interface UseAwaitContextCompactionOptions {
  * were freed. The HTTP `/condense` ack only means work *started*.
  */
 export function useAwaitContextCompaction({
+  conversationId,
   beforeToken,
   baselineEventIds,
   onComplete,
@@ -81,7 +83,8 @@ export function useAwaitContextCompaction({
       : new Set(useEventStore.getState().eventIds);
 
     const readAfterToken = () =>
-      useMetricsStore.getState().usage?.per_turn_token ?? beforeToken;
+      useMetricsStore.getState().metricsByConversationId[conversationId ?? ""]
+        ?.usage?.per_turn_token ?? beforeToken;
 
     const finish = (afterToken: number, outcome: ContextCompactionOutcome) => {
       if (completed) {
@@ -160,5 +163,5 @@ export function useAwaitContextCompaction({
       clearTimeout(settleTimer);
       clearTimeout(timeoutTimer);
     };
-  }, [beforeToken, baselineEventIds, timeoutMs]);
+  }, [conversationId, beforeToken, baselineEventIds, timeoutMs]);
 }

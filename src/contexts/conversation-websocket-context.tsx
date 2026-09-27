@@ -63,7 +63,11 @@ import { getAgentServerClientOptions } from "#/api/agent-server-client-options";
 import { useConversationStore } from "#/stores/conversation-store";
 import { trackError } from "#/utils/error-handler";
 import { useReadConversationFile } from "#/hooks/mutation/use-read-conversation-file";
-import useMetricsStore, { type MetricsState } from "#/stores/metrics-store";
+import useMetricsStore from "#/stores/metrics-store";
+import {
+  combineUsageMetrics,
+  toMetricsState,
+} from "#/utils/conversation-metrics";
 import { useConversationHistory } from "#/hooks/query/use-conversation-history";
 import { setConversationState } from "#/utils/conversation-local-storage";
 import {
@@ -218,62 +222,18 @@ export function ConversationWebSocketProvider({
 
   // Helper function to update metrics from stats event
   const updateMetricsFromStats = useCallback(
-    (event: ConversationStateUpdateEventStats) => {
-      const usageToMetrics = event.value.usage_to_metrics;
-      if (!usageToMetrics) {
-        return;
+    (
+      conversationId: string | null | undefined,
+      event: ConversationStateUpdateEventStats,
+    ) => {
+      if (conversationId && event.value.usage_to_metrics) {
+        useMetricsStore
+          .getState()
+          .setWebSocketSnapshot(
+            conversationId,
+            toMetricsState(combineUsageMetrics(event.value)),
+          );
       }
-
-      // usage_to_metrics is keyed by arbitrary LLM usage ids ("default",
-      // "condenser", "profile:<name>:<uuid>", …) — combine across all of
-      // them, mirroring getCombinedMetrics on the REST path.
-      const combined = Object.values(usageToMetrics).reduce<{
-        cost: number;
-        maxBudgetPerTask: number | null;
-        usage: MetricsState["usage"];
-      }>(
-        (acc, metrics) => {
-          acc.cost += metrics.accumulated_cost;
-          if (
-            acc.maxBudgetPerTask === null &&
-            metrics.max_budget_per_task !== null
-          ) {
-            acc.maxBudgetPerTask = metrics.max_budget_per_task;
-          }
-          const tokenUsage = metrics.accumulated_token_usage;
-          if (tokenUsage) {
-            acc.usage = {
-              prompt_tokens:
-                (acc.usage?.prompt_tokens ?? 0) + tokenUsage.prompt_tokens,
-              completion_tokens:
-                (acc.usage?.completion_tokens ?? 0) +
-                tokenUsage.completion_tokens,
-              cache_read_tokens:
-                (acc.usage?.cache_read_tokens ?? 0) +
-                tokenUsage.cache_read_tokens,
-              cache_write_tokens:
-                (acc.usage?.cache_write_tokens ?? 0) +
-                tokenUsage.cache_write_tokens,
-              context_window: Math.max(
-                acc.usage?.context_window ?? 0,
-                tokenUsage.context_window,
-              ),
-              per_turn_token: Math.max(
-                acc.usage?.per_turn_token ?? 0,
-                tokenUsage.per_turn_token,
-              ),
-            };
-          }
-          return acc;
-        },
-        { cost: 0, maxBudgetPerTask: null, usage: null },
-      );
-
-      useMetricsStore.getState().setMetrics({
-        cost: combined.cost,
-        max_budget_per_task: combined.maxBudgetPerTask,
-        usage: combined.usage,
-      });
     },
     [],
   );
@@ -313,11 +273,6 @@ export function ConversationWebSocketProvider({
     // half-applied state (events gone but the old id still reported).
     clearEventsForConversation(nextId);
     resetBrowserStore();
-    // The metrics store is conversation-scoped state too: without a reset the
-    // previous conversation's usage/cost keeps rendering in the new
-    // conversation's meter until fresh WS stats arrive — and a brand-new
-    // conversation sends none, so the stale figure stuck indefinitely.
-    useMetricsStore.getState().resetMetrics();
   }, [conversationId, clearEventsForConversation, resetBrowserStore]);
 
   useLayoutEffect(() => {
@@ -661,7 +616,7 @@ export function ConversationWebSocketProvider({
               setExecutionStatus(conversationId, event.value);
             }
             if (isStatsConversationStateUpdateEvent(event)) {
-              updateMetricsFromStats(event);
+              updateMetricsFromStats(conversationId, event);
             }
             // Mirror goal status into the store. Intentionally duplicated across
             // the main and planning WebSocket handlers (like the execution_status
@@ -904,7 +859,7 @@ export function ConversationWebSocketProvider({
               setExecutionStatus(planningConversationId, event.value);
             }
             if (isStatsConversationStateUpdateEvent(event)) {
-              updateMetricsFromStats(event);
+              updateMetricsFromStats(planningConversationId, event);
             }
             // Mirror goal status into the store. Intentionally duplicated across
             // the main and planning WebSocket handlers (like the execution_status

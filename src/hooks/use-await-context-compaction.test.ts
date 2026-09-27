@@ -36,7 +36,7 @@ describe("useAwaitContextCompaction", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     useEventStore.getState().clearEvents();
-    useMetricsStore.getState().setMetrics({
+    useMetricsStore.getState().setWebSocketSnapshot("c1", {
       cost: null,
       max_budget_per_task: null,
       usage: {
@@ -60,6 +60,7 @@ describe("useAwaitContextCompaction", () => {
 
     renderHook(() =>
       useAwaitContextCompaction({
+        conversationId: "c1",
         beforeToken: 10_000,
         onComplete,
       }),
@@ -67,7 +68,7 @@ describe("useAwaitContextCompaction", () => {
 
     act(() => {
       useEventStore.getState().addEvent(condensationEvent("cond-1"));
-      useMetricsStore.getState().setMetrics({
+      useMetricsStore.getState().setWebSocketSnapshot("c1", {
         cost: null,
         max_budget_per_task: null,
         usage: {
@@ -94,6 +95,7 @@ describe("useAwaitContextCompaction", () => {
 
     renderHook(() =>
       useAwaitContextCompaction({
+        conversationId: "c1",
         beforeToken: 10_000,
         onComplete,
       }),
@@ -121,6 +123,7 @@ describe("useAwaitContextCompaction", () => {
 
     renderHook(() =>
       useAwaitContextCompaction({
+        conversationId: "c1",
         beforeToken: 10_000,
         onComplete,
       }),
@@ -145,7 +148,7 @@ describe("useAwaitContextCompaction", () => {
     const baseline = new Set(useEventStore.getState().eventIds);
     act(() => {
       useEventStore.getState().addEvent(condensationEvent("cond-early"));
-      useMetricsStore.getState().setMetrics({
+      useMetricsStore.getState().setWebSocketSnapshot("c1", {
         cost: null,
         max_budget_per_task: null,
         usage: {
@@ -162,6 +165,7 @@ describe("useAwaitContextCompaction", () => {
     const onComplete = vi.fn();
     renderHook(() =>
       useAwaitContextCompaction({
+        conversationId: "c1",
         beforeToken: 10_000,
         baselineEventIds: baseline,
         onComplete,
